@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>神経衰弱</title>
+        <meta http-equiv="Content-Script-Type" content="text/javascript">
+    </head>
+    <body>
+
+        <div id="game_area"></div>
+
+        <script>
+
+            var i, j;
+
+            var game_state = 0;
+            var game_turn = 0;
+
+            var bg;
+
+            var touch_cardList = new Array();
+
+            //各スートの文字を設定
+            var suitList = ["&spades;", "&clubs;", "&diams;", "&hearts;"];
+
+            //カード配列作成
+            var cardHolder = new Array();
+
+            //カードオブジェクトを作成してカード配列に格納
+            for(i = 0;i < 4;i++){
+                for(j = 0;j < 13;j++){
+
+                    //カードオブジェクトの作成
+                    cardHolder[j + i * 13] = new Object();
+
+                    //スートを設定
+                    cardHolder[j + i * 13].suit = i;
+
+                    //数字を設定
+                    cardHolder[j + i * 13].num = j + 1;
+
+                    //状態を設定
+                    cardHolder[j + i * 13].state = 1;
+
+                }
+            }
+
+            //table要素のタグ文字列
+            var table_tag = '<table style="border-spacing: 12px; background: #808040;">';
+
+            //セル用tdタグのテンプレート文字列
+            var cell_tmp = '<td id="_id:"  onclick="touchCard(_no:)" style ="width: 40px; height: 60px; text-align: center; background: #ffffff;"></td>';
+
+            //テーブルタグの文字列を作成
+            for(i = 0;i < 4;i++){
+
+                //テーブルタグ文字列にtr(行)開始タグを追記
+                table_tag += '<tr>';
+
+                for(j = 0;j < 13;j++){
+
+                    //テンプレートにidを入れてここのセル用tdタグを作成
+                    var cell_tag = cell_tmp.replace('_id:', 'cell' + (j + i * 13));
+
+                    //onclickに指定する関数の引数を番号に置換
+                    cell_tag = cell_tag.replace('_no:', j + i * 13);
+
+                    //tableタグ文字列にtdタグを追記
+                    table_tag += cell_tag;
+
+                }
+
+                //テーブルタグ文字列にtd終了タグを追記
+                table_tag += '</tr>';
+
+            }
+
+            //tableタグを閉じてtable要素のタグ文字列完成
+            table_tag += '</table>';
+
+            table_tag += '</table><br><div id="message_disp"></div>';
+
+            // game_area要素内にtableタグを追加
+            document.getElementById("game_area").innerHTML = table_tag;
+
+            //背景描画用canvas作成
+            var bg_cv = document.createElement("canvas");
+
+            //canvasサイズ設定
+            bg_cv.width = 40;
+            bg_cv.height = 60;
+
+            var bg_context = bg_cv.getContext("2d");
+
+            //模様を描く
+            bg_context.fillStyle = "#ffffff";
+            bg_context.fillRect(0, 0, bg_cv.width, bg_cv.height);
+
+            bg_context.fillStyle = "#0040ff";
+            bg_context.fillRect(5, 5, bg_cv.width - 8, bg_cv.height - 8);
+
+            bg_context.fillStyle = "#ccff00";
+            bg_context.fillRect(13, 13, bg_cv.width - 24, bg_cv.height - 24);
+
+            bg_context.fillStyle = "#ffcc00";
+            bg_context.fillRect(13, 25, bg_cv.width - 24, bg_cv.height - 48);
+
+            //背景画像を文字列として保存
+            bg = bg_cv.toDataURL();
+
+            shuffle(400);
+
+            viewCards();
+
+            //カードクリック(クリックイベント)用関数
+            function touchCard(no) {
+
+                //指定番号のカード状態に応じて処理
+                switch (game_state){
+
+                    //未クリック状態
+                    case 0:
+
+                        //裏状態のカードなら表状態に
+                        if(cardHolder[no].state == 1){
+
+                            //クリックされたカードを記録
+                            touch_cardList[0] = cardHolder[no];
+
+                            //表に
+                            cardHolder[no].state = 2;
+
+                            //一枚クリック状態に
+                            game_state = 1;
+
+                            //描画しなおして変更を反映
+                            viewCards();
+
+                        }
+                    
+                    break;
+
+                    //一枚クリック状態
+                    case 1:
+
+                        //裏状態のカードなら表状態に
+                        if (cardHolder[no].state == 1){
+
+                            //クリックしたカードを記録
+                            touch_cardList[1] = cardHolder[no];
+
+                            //表に
+                            cardHolder[no].state = 2;
+
+                            //二枚クリック状態に
+                            game_state = 2;
+
+                            //描画しなおして変更を反映
+                            viewCards();
+
+                            //1秒後にresetCards()を呼び出しカード見クリック状態へ
+                            setTimeout("checkCards()",1000);
+                        }
+
+                    break;
+
+                }
+
+            }
+
+            //クリックされたカードの確認
+            function checkCards(){
+
+                //二枚のカードの数字が同じなか判定
+                if (touch_cardList[0].num == touch_cardList[1].num){
+
+                    //カードを取得状態に
+                    touch_cardList[0].state = 3;
+                    touch_cardList[1].state = 3;
+
+                }
+
+                else{
+
+                    //カードを未クリック状態に
+                    touch_cardList[0].state = 1;
+                    touch_cardList[1].state = 1;
+
+                }
+
+                //未クリック状態へ移行
+                game_state = 0;
+
+                //ターン数増加
+                game_turn++;
+
+                var i;
+                var clear = true;
+
+                //終了判定
+                for (i = 0;i < 52;i++){
+                    if (cardHolder[i].state != 3){
+                        clear = false;
+                    }
+                }
+
+                if (clear){
+                    alert("ゲームクリアです。ターン数:" + game_turn);
+                }
+
+                //描画しなおして変更を反映
+                viewCards();
+
+            }
+
+            //カード配列をシャッフル
+            function shuffle(num) {
+
+                var i;
+                var i1, i2;
+
+                var tmp;
+
+                //指定回数配列内の要素を入れ替える
+                for (i = 0;i < num;i++){
+
+                    //乱数でi1とi2に異なる整数を代入
+                    do {
+
+                        i1 = Math.floor(Math.random() * cardHolder.length);
+                        i2 = Math.floor(Math.random() * cardHolder.length);
+
+                    }while(i1 == i2);
+
+                    //i1とi2の位置にある配列要素を入れ替え
+                    tmp = cardHolder[i1];
+                    cardHolder[i1] = cardHolder[i2];
+                    cardHolder[i2] = tmp;
+
+                }
+            }
+
+            //カード配列の状態をテーブルに反映
+            function viewCards() {
+
+                var i;
+
+                //テーブルの各セルにカード配列の対応するカード情報を記入
+                for(i = 0;i < 52;i++){
+
+                    //セルのtd要素参照を取得
+                    var itemCell = document.getElementById('cell' + i);
+
+                    switch(cardHolder[i].state){
+
+                        //裏
+                        case 1:
+                            //背景に画像を設定
+                            itemCell.style.background = '#0000ff url("' +bg+ '")';
+
+                            //tdセル内をクリア
+                            itemCell.innerHTML = '';
+
+                            break;
+                        
+                        //表
+                        case 2:
+                            //背景を白に
+                            itemCell.style.background = '#ffffff';
+
+                            //スートに応じて文字の色設定
+                            if(cardHolder[i].suit < 2){
+                                itemCell.style.color = '#000000';
+                            }
+
+                            else{
+                                itemCell.style.color = '#ff0000';
+                            }
+                    
+                            //セル内のHTML文字列を作成
+                            var itemVal = suitList[cardHolder[i].suit] + '<br>' + cardHolder[i].num;
+
+                            //セルのタグ内にHTML文字列を設定
+                            itemCell.innerHTML = itemVal;
+
+                        break;
+
+                        //取得状態
+                        case 3:
+
+                             //背景を灰色に
+                            itemCell.style.background = '#808080';
+
+                            //スートに応じて文字の色設定
+                            if(cardHolder[i].suit < 2){
+                                itemCell.style.color = '#404040';
+                            }
+
+                            else{
+                                itemCell.style.color = '#c0c04040';
+                            }
+                    
+                            //セル内のHTML文字列を作成
+                            var itemVal = suitList[cardHolder[i].suit] + '<br>' + cardHolder[i].num;
+
+                            //セルのタグ内にHTML文字列を設定
+                            itemCell.innerHTML = itemVal;
+
+                            
+                        break;
+
+
+                    }
+
+                }
+
+                document.getElementById("message_disp").innerHTML = game_turn;
+
+            }
+
+        </script>
+    </body>
+</html>
